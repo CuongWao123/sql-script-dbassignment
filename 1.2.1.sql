@@ -121,7 +121,7 @@ BEGIN
       IF NOT EXISTS (SELECT 1 FROM phongban WHERE mspb = masophongban) THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Ma phong ban khong ton tai!';
      END IF;
-     IF NOT EXISTS (SELECT 1 FROM nvchinhthuc as nvct WHERE nvct.msnv = nguoiquanly) THEN
+     IF nguoiquanly is not null and  NOT EXISTS (SELECT 1 FROM nvchinhthuc as nvct WHERE nvct.msnv = nguoiquanly) THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Nguoi quan ly khong ton tai!';
      END IF;
     
