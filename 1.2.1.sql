@@ -349,5 +349,141 @@ BEGIN
     END IF;
 END //
 DELIMITER ;
+###############################################################
+-- update bangluong 
+-- nếu có lương >15tr thì thuế = 15%, ngược lại là 0%
+-- lương 1 giờ = lương cơ bản / số giờ làm tối thiểu
+-- lương làm thêm = lương 1 giờ x 2 x số giờ làm thêm
+-- update xăng xe, ăn trưa, hỗ trợ khác trong hàm tính lương
+-- Bảo hiểm xã hội (bhxh) 5% lương cơ bản
+-- Bảo hiểm y tế (bhyt) 1% lương cơ bản  
+-- khấu trừ 0% cho nhân viên thử việc và 5% cho nhân viên (% so với lương cơ bản)
+-- -- tính lương trừ không làm đủ giờ tối thiểu
+-- -- lương ko đủ nếu làm không đủ giờ tối thiểu thì TRỪ (số giờ thiếu x lương 1 giờ)
+-- lương thực tế = lương làm thêm + lương cơ bản + xăng xe + ăn trưa + hỗ trợ khác - bhyt - bhxh - thuế - khấu trừ - lương làm không đủ giờ
+drop procedure if exists tinh_luong;
+-- sửa bảng lương + tính toán lương thực tế
+-- thêm xăng xe, ăn trưa, hỗ trợ khác khi tính lương
+DELIMITER $$
+create procedure tinh_luong(
+	in in_msnv char(9),
+    in in_thang int,
+    in in_nam int,
+    in in_xangxe decimal(10,2),
+    in in_antrua decimal(10,2),
+    in in_hotrokhac decimal(10,2)
+)
+begin
+	
+	declare loai_nv varchar(10);
+    declare in_luongcoban decimal(10,2);
+    declare in_khautru decimal(10,2);
+    declare in_thue decimal(10,2);
+    declare total_luong decimal(10,2);
+    declare hour_luong decimal(10,2);
+    declare extra_luong decimal(10,2);
+    declare luong_tru_ko_du_gio decimal(10,2);
+    declare in_gio_toi_thieu int;
+    declare in_gio_hien_tai int;
+    
+    -- validate
+    if not exists (select 1 from nhanvien where msnv = in_msnv) then
+		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Khong co nhan vien nay'; 
+    end if;
+    
+    if (in_thang < 1 or in_thang > 12) then
+		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Thang khong hop le'; 
+    end if;
+    
+    if (in_xangxe < 0) then
+		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Tien xang xe khong hop le'; 
+    end if;
+    
+    if (in_antrua < 0) then
+		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Tien an trua khong hop le'; 
+    end if;
+    
+    if (in_hotrokhac < 0) then
+		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Tien ho tro khac khong hop le'; 
+    end if;
+    
+    -- chọn loại nhân viên
+    select loainhanvien 
+    into loai_nv
+    from nhanvien where in_msnv = nhanvien.msnv;
+    
+    -- chọn lương cơ bản
+    select luongcoban
+    into in_luongcoban
+    from bangluong
+    where in_msnv = bangluong.msnv and in_thang = bangluong.thang and in_nam = bangluong.nam;
+    
+    -- chọn lương làm thêm
+    select luonglamthem
+    into extra_luong
+    from bangluong
+    where in_msnv = bangluong.msnv and in_thang = bangluong.thang and in_nam = bangluong.nam;
+    
+    -- lấy số giờ hiện tại
+    select sogiohientai
+    into in_gio_hien_tai
+    from bangchamcong
+    where in_msnv = bangchamcong.msnv and in_thang = bangchamcong.thang and in_nam = bangchamcong.nam;
+    
+    -- lấy số giờ tối thiểu
+    select sogiotoithieu
+    into in_gio_toi_thieu
+    from bangchamcong
+    where in_msnv = bangchamcong.msnv and in_thang = bangchamcong.thang and in_nam = bangchamcong.nam;
+    
+    -- tính lương trừ không làm đủ giờ tối thiểu
+    -- lương 1 giờ = lương cơ bản / số giờ
+    -- lương ko đủ nếu làm không đủ giờ tối thiểu thì TRỪ (số giờ thiếu x lương 1 giờ)
+    set hour_luong = in_luongcoban / in_gio_toi_thieu;
+    if (in_gio_hien_tai < in_gio_toi_thieu) then
+		set luong_tru_ko_du_gio = hour_luong * (in_gio_toi_thieu - in_gio_hien_tai);
+    else
+		set luong_tru_ko_du_gio = 0;
+    end if;
+    
+    
+    -- tính khấu trừ dựa trên loại nhân viên
+    if (loai_nv = 'chinh thuc') then 
+		set in_khautru = (in_luongcoban * 0.15);
+	end if;
+	if (loai_nv = 'thu viec') then 
+		set in_khautru = 0;
+	end if;
+    
+    -- tính thuế trên tiền lương cơ bản
+    if (in_luongcoban > 15000000) then 
+		set in_thue = 0.15 * in_luongcoban;
+	else
+		set in_thue = 0;
+    end if;
+    
+    -- tính lương thực tế
+    -- lương thực tế = lương làm thêm + lương cơ bản + xăng xe + ăn trưa + hỗ trợ khác - bhyt - bhxh - thuế - khấu trừ - lương số giờ không làm đủ
+    set total_luong = extra_luong + in_luongcoban + in_xangxe + in_antrua + in_hotrokhac
+     - (in_luongcoban * 0.05) - (in_luongcoban * 0.01) - in_thue - in_khautru - luong_tru_ko_du_gio;
+	if (total_luong < 0) then set total_luong = 0;
+    end if;
+    
+    update bangluong
+		set xangxe = in_xangxe,
+			antrua = in_antrua,
+            hotrokhac = in_hotrokhac,
+            bhxh = (in_luongcoban * 0.05),
+            bhyt = (in_luongcoban * 0.01),
+            khautru = in_khautru,
+            thue = in_thue,
+            luongthucte = total_luong
+    where in_msnv = bangluong.msnv and in_thang = bangluong.thang and in_nam = bangluong.nam;
 
-
+end
+$$
+DELIMITER ;
+-- test
+-- NVNV0000009
+call tinh_luong('NV0000009',1,2024,50000.00,50000.00,100000.00);
+select * from bangluong where msnv='NV0000009';

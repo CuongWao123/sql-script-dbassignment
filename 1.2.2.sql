@@ -52,4 +52,66 @@ BEGIN
 END $$
 DELIMITER ;
 ################################################################
+-- trigger nhiều bảng
+-- Khi số giờ làm thêm thay đổi thì cập nhật Lương làm thêm ở bảng lương
+drop trigger if exists update_luong_lam_them_UPDATE;
+DELIMITER $$
+create trigger update_luong_lam_them_UPDATE
+after update
+on bangchamcong
+for each row
+begin
+	declare luong_1_hour decimal(10,2);
+    declare l_co_ban decimal(10,2);
+    declare extra_salary decimal(10,2);
+    
+    -- lấy lương cơ bản
+    select luongcoban
+    into l_co_ban
+    from bangluong Bang
+    where NEW.msnv = Bang.msnv and NEW.thang = Bang.thang and NEW.nam = Bang.nam;
+    
+    set luong_1_hour = l_co_ban / NEW.sogiotoithieu;
+    set extra_salary = luong_1_hour * NEW.sogiolamthem * 2;
 
+    UPDATE bangluong
+		set luonglamthem = extra_salary
+	where NEW.msnv = bangluong.msnv and NEW.thang = bangluong.thang and NEW.nam = bangluong.nam;
+    
+end
+$$
+DELIMITER ;
+-- insert
+drop trigger if exists update_luong_lam_them_INSERT;
+DELIMITER $$
+create trigger update_luong_lam_them_INSERT
+after insert
+on bangchamcong
+for each row
+begin
+	declare luong_1_hour decimal(10,2);
+    declare l_co_ban decimal(10,2);
+    declare extra_salary decimal(10,2);
+    
+    -- lấy lương cơ bản
+    select luongcoban
+    into l_co_ban
+    from bangluong Bang
+    where NEW.msnv = Bang.msnv and NEW.thang = Bang.thang and NEW.nam = Bang.nam;
+    
+    set luong_1_hour = l_co_ban / NEW.sogiotoithieu;
+    set extra_salary = luong_1_hour * NEW.sogiolamthem * 2;
+
+    UPDATE bangluong
+		set luonglamthem = extra_salary
+	where NEW.msnv = bangluong.msnv and NEW.thang = bangluong.thang and NEW.nam = bangluong.nam;
+    
+end
+$$
+DELIMITER ;
+-- test
+UPDATE bangchamcong
+	set sogiolamthem = 50
+where msnv = 'NV0000010';
+select * from bangluong where msnv = 'NV0000010';
+################################################################

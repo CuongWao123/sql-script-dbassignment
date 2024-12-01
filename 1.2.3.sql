@@ -21,3 +21,32 @@ DELIMITER ;
 select * from bangluong;
 call tim_maxluong_withinPhongban_inMonth(1,2000 ,99999999.99);
 ##############################################################################
+-- Hiển thị tổng số giờ làm thêm và tổng số lương làm thêm mà công ty đã chi trả trong mọi tháng của năm input_year
+drop procedure if exists SUM_lam_them;
+DELIMITER $$
+create procedure SUM_lam_them(
+    input_year int
+)
+begin
+	DECLARE year_temp YEAR;
+	set year_temp = input_year;
+    
+	select L.thang,
+		   SUM(L.luonglamthem) as tong_luong_lam_them,
+           SUM(C.sogiolamthem) as tong_gio_lam_them
+    from 
+		bangluong L
+    join
+		bangchamcong C
+	on
+		L.msnv = C.msnv and L.thang = C.thang and L.nam = C.nam 
+    where    
+        L.nam = input_year
+    group by 
+		L.thang;
+end
+$$
+DELIMITER ;
+-- test
+call SUM_lam_them(2024);
+##############################################################################
