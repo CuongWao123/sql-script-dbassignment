@@ -145,7 +145,8 @@ BEGIN
     VALUES (msnv, MONTH(startdate), YEAR(startdate), lcb);
     INSERT INTO bangchamcong (msnv, thang, nam, sogiohientai, sogiotoithieu, sogiolamthem) 
     VALUES (msnv, MONTH(startdate), YEAR(startdate), 0, sogiotoithieu, 0);
-
+	
+	select 'Thanh cong';
 END //
 DELIMITER ;
 --              Xoa 1 nhan vien 
@@ -158,6 +159,7 @@ BEGIN
     ELSE
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Khong co nhan vien nay';
     END IF;
+    select 'Thanh cong';
 END $$
 DELIMITER ;
 -- 				Sua ten mot nhan vien
@@ -174,6 +176,7 @@ BEGIN
     ELSE
       SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Khong co nhan vien nay';
     END IF;
+    select 'Thanh cong';
 END $$
 DELIMITER ;
 --  ------------------- test 
@@ -221,6 +224,7 @@ BEGIN
     END IF;
     INSERT INTO duan (maDA, tong_von_dau_tu, start_date, ten_DA, mota, ma_phong_ban_quanly)
     VALUES (p_maDA, p_tong_von_dau_tu, p_start_date, p_ten_DA, p_mota, p_ma_phong_ban_quanly);
+	select 'Thanh cong';
 END $$
 DELIMITER ;
 -- 					xoa du an
@@ -240,7 +244,7 @@ BEGIN
         SET MESSAGE_TEXT = 'Du an nay khong ton tai.';
     END IF;
     DELETE FROM duan WHERE maDA = p_maDA;
-
+select 'Thanh cong';
 END $$
 DELIMITER ;
 -- 					sua du an 
@@ -273,7 +277,7 @@ BEGIN
     UPDATE duan
     SET ten_DA = p_ten_DA
     WHERE maDA = p_maDA;
-
+select 'Thanh cong';
 END $$
 DELIMITER ;
 ###############################################################
@@ -304,6 +308,7 @@ BEGIN
     -- Thêm phòng ban
     INSERT INTO phongban (mspb, mota, tenphongban, ngaythanhlap, nv_quanly)
     VALUES (p_mspb, p_mota, p_tenphongban,curdate(), p_nv_quanly);
+select 'Thanh cong';
 END $$
 DELIMITER ;
 -- call them_phongban('PB0000009','phong ban oi','cuong dep zai' , 'NV0000011');
@@ -323,7 +328,7 @@ BEGIN
     IF ROW_COUNT() = 0 THEN
         SIGNAL SQLSTATE '45000'
         SET MESSAGE_TEXT = 'Ma phong ban nay khong ton tai';
-    END IF;
+    END IF;select 'Thanh cong';
 END //
 DELIMITER ;
 -- CALL update_tenphongban('PB0000009', 'Cuong dep zaiiiiii');
@@ -346,7 +351,7 @@ BEGIN
     ELSE
         DELETE FROM phongban
         WHERE mspb = in_mspb;
-    END IF;
+    END IF;select 'Thanh cong';
 END //
 DELIMITER ;
 ###############################################################
