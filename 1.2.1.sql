@@ -492,3 +492,242 @@ DELIMITER ;
 -- NVNV0000009
 call tinh_luong('NV0000009',1,2024,50000.00,50000.00,100000.00);
 select * from bangluong where msnv='NV0000009';
+####################################################################
+ 
+-- lay nguoi luong cao thu 2 cua 1 phong
+drop function if exists nhiluong;
+delimiter //
+create function nhiluong(mpban char(9))
+returns char(9)
+deterministic
+begin
+declare nhi char(9);
+select msnv into nhi
+from nhanvien n,bangluong b
+where n.msnv=b.msnv 
+order by luongcoban desc
+limit 1 offset 1;
+return nhi;
+end //
+delimiter ;
+-- lay luong hien tai
+drop function if exists luonghientai;
+delimiter //
+create function luonghientai(nv char(9))
+returns decimal(10,2)
+deterministic
+begin
+declare luong decimal(10,2);
+select luongcoban into luong
+from nhanvien n,bangluong b
+where n.msnv=b.msnv 
+and b.nam = year(now()) and b.thang =month(now())and n.msnv=nv;
+return luong;
+end //
+delimiter ;
+##########################################################################
+drop procedure if exists updatemaxluong;
+delimiter //
+create procedure updatemaxluong(mpban char(9),qlmoi char(9))
+begin
+	declare maxluong decimal(10,2);
+	declare phong char(9);
+    IF NOT EXISTS (SELECT 1 FROM phongban WHERE mpban = phongban.mspb) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Ma phong ban khong ton tai!';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM nhanvien WHERE qlmoi = nhanvien.msnv) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Ma nhan vien khong ton tai!';
+    END IF;
+	select mspb into phong
+		from nhanvien
+		where msnv=qlmoi;
+	select max(luongcoban) into maxluong
+		from lscongviec l, phongban p
+		where  p.mspb = mpban and p.tenphongban = l.tenphongban 
+        ;
+	if not(phong = mpban or phong is null) then 
+    
+		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Nhan vien khong thuoc phong ban nay';
+	end if;
+	if(maxluong < luonghientai(qlmoi)) then set maxluong = luonghientai(qlmoi); end if;
+
+
+update phongban
+	set nv_quanly = qlmoi
+	where mspb = phong;
+    CALL insert_into_ls_congviec(
+        qlmoi, 
+        date(now()), 
+        'truong phong', 
+        (select loainhanvien from nhanvien where msnv=qlmoi), 
+        maxluong,
+        (SELECT tenphongban FROM phongban WHERE mspb = mpban)
+    );
+				
+
+end //
+delimiter ;
+##############################################################################
+DROP PROCEDURE IF EXISTS insert_nvchinhthuc1;
+DELIMITER //
+CREATE PROCEDURE insert_nvchinhthuc1 (
+    msnv CHAR(9), 
+    hovaten VARCHAR(20), 
+    ngaysinh DATE, 
+    gioitinh VARCHAR(4), 
+    cccd CHAR(12), 
+    masophongban CHAR(9),
+    bhxh VARCHAR(20),
+    nguoiquanly CHAR(9),
+    startdate DATE,
+    chucvu VARCHAR(20),
+    lcb DECIMAL(10,2),
+    sogiotoithieu INT
+)
+BEGIN
+    IF bhxh IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Hay them BHXH!';
+    END IF;
+   IF nguoiquanly IS NOT NULL AND nguoiquanly NOT IN (SELECT n.msnv FROM nvchinhthuc n) THEN
+         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Nhan vien quan ly khong ton tai!';
+     END IF;
+    
+    INSERT INTO nvchinhthuc (msnv, bhxh, nguoiquanly) 
+    VALUES (msnv, bhxh, nguoiquanly);
+
+    -- Truy vấn tên phòng ban trực tiếp khi thêm vào lịch sử công việc
+    CALL insert_into_ls_congviec(
+        msnv, 
+        startdate, 
+        chucvu, 
+        'chinh thuc', 
+        lcb, 
+        (SELECT tenphongban FROM phongban WHERE mspb = masophongban)
+    );
+    INSERT INTO bangluong(msnv, thang, nam, luongcoban) 
+    VALUES (msnv, MONTH(DATE_ADD(startdate, INTERVAL 1 MONTH)), YEAR(DATE_ADD(startdate, INTERVAL 1 MONTH)), lcb);
+    INSERT INTO bangchamcong (msnv, thang, nam, sogiohientai, sogiotoithieu, sogiolamthem) 
+    VALUES (msnv, MONTH(DATE_ADD(startdate, INTERVAL 1 MONTH)), YEAR(DATE_ADD(startdate, INTERVAL 1 MONTH)), 0, sogiotoithieu, 0);
+
+END //
+DELIMITER ;
+#################################################################################################
+drop procedure if exists thuviec_thanh_chinhthuc;
+delimiter //
+create procedure thuviec_thanh_chinhthuc(nv char(9),bhxh varchar(20) , luong decimal(10,2),toithieu int)
+begin
+declare hoten varchar(20);
+declare ngaysinh date;
+declare gioitinh varchar(4);
+declare cccd char(12);
+declare pban char(9);
+declare giamsat char(9);
+declare startday date;
+IF NOT EXISTS (SELECT 1 FROM nhanvien WHERE nv = msnv) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Ma phong ban khong ton tai!';
+    END IF;
+IF EXISTS (SELECT 1 FROM nvchinhthuc WHERE nv = msnv) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Nhan vien nay da la nhan vien chinh thuc';
+    END IF;
+select n.hoten, n.ngaysinh, n.gioitinh,n.cccd,n.mspb 
+into hoten,ngaysinh,gioitinh,cccd,pban
+from nhanvien n 
+where n.msnv=nv;
+select n.nvgiamsat,n.startdate into giamsat,startday
+from nvthuviec n
+where n.msnv= nv;
+if((select enddate 
+from nvthuviec
+where msnv= nv) > date(now()))then update nvthuviec 
+									set enddate= date(now())
+									where msnv= nv; end if;
+call insert_nvchinhthuc1(nv,hoten,ngaysinh,gioitinh,cccd,
+pban,bhxh,giamsat,date(now()),'thanh vien',luong,toithieu);
+CALL insert_into_ls_congviec(
+        nv, 
+        startday, 
+        'khong', 
+        'thu viec', 
+        luonghientai(nv),
+        (SELECT tenphongban FROM phongban WHERE mspb = pban)
+    );
+update lscongviec
+set stt=0 
+where msnv=nv and chucvu='thanh vien';
+update lscongviec
+set stt=1
+where msnv=nv and loainv='thu viec';
+update lscongviec
+set stt=2
+where msnv=nv and chucvu='thanh vien';
+update nhanvien
+set loainhanvien ='chinh thuc'
+where msnv=nv and loainhanvien='thu viec';
+end //
+delimiter ;
+###########################################################################################
+drop procedure if exists chuyen_viec;
+delimiter //
+create procedure chuyen_viec(nv char(9),luong decimal(10,2), chuc varchar(20),pban char(9),loai varchar(10))
+begin
+update nhanvien
+set mspb = pban
+where msnv=nv;
+call insert_into_ls_congviec (
+    nv,
+    curdate(),
+    chuc,
+    loai,
+    luong,
+    (SELECT tenphongban FROM phongban WHERE mspb = pban)
+);
+end //
+delimiter ;
+###############################################################################################
+DROP PROCEDURE IF EXISTS insert_nvthuviec;
+DELIMITER //
+CREATE PROCEDURE insert_nvthuviec (
+    msnv CHAR(9), 
+    hovaten VARCHAR(20), 
+    ngaysinh DATE, 
+    gioitinh VARCHAR(4), 
+    cccd CHAR(12), 
+    masophongban CHAR(9),
+    nguoiquanly1 CHAR(9),
+    startdate DATE,
+    lcb DECIMAL(10,2),
+    sogiotoithieu INT
+)
+BEGIN
+    declare end1 date;
+    IF nguoiquanly1 IS NULL  -- (nguoiquanly NOT IN (SELECT msnv FROM nvchinhthuc))
+     THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Nhan vien quan ly khong ton tai123!';
+    END IF;
+    IF NOT EXISTS (
+    SELECT 1 
+    FROM nvchinhthuc n
+    WHERE binary TRIM(n.msnv) = binary TRIM(nguoiquanly1)
+) THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Nhan vien quan ly khong ton tai456!';
+END IF;
+
+    SET end1 = DATE_ADD(startdate, INTERVAL 2 MONTH);
+    CALL insert_into_nhanvien(msnv, hovaten, ngaysinh, gioitinh, cccd, 'thu viec', masophongban);
+    INSERT INTO nvthuviec (msnv, startdate,enddate, nvgiamsat) 
+    VALUES (msnv, startdate,end1,nguoiquanly1);
+
+    -- Truy vấn tên phòng ban trực tiếp khi thêm vào lịch sử công việc
+    
+    INSERT INTO bangluong(msnv, thang, nam, luongcoban) 
+    VALUES (msnv, MONTH(startdate), YEAR(startdate), lcb);
+    INSERT INTO bangchamcong (msnv, thang, nam, sogiohientai, sogiotoithieu, sogiolamthem) 
+    VALUES (msnv, MONTH(startdate), YEAR(startdate), 0, sogiotoithieu, 0);
+
+END //
+DELIMITER ;
+
+-- ############################################################
+
+
+
