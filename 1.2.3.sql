@@ -50,3 +50,29 @@ DELIMITER ;
 -- test
 call SUM_lam_them(2024);
 ##############################################################################
+
+-- ############################################################
+DROP PROCEDURE IF EXISTS xem_lichsu_cv;
+
+DELIMITER //
+
+CREATE PROCEDURE xem_lichsu_cv(nv CHAR(9))
+BEGIN
+    SELECT 
+        l.stt, 
+        n.hoten, 
+        n.msnv, 
+        l.startdate, 
+        l.chucvu, 
+        l.tenphongban 
+    FROM 
+        nhanvien n
+    JOIN 
+        lscongviec l 
+    ON 
+        n.msnv = l.msnv
+    WHERE 
+        n.msnv = nv;
+END //
+
+DELIMITER ;
