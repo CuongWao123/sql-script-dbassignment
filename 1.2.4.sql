@@ -88,3 +88,48 @@ DELIMITER ;
 
 select * from bangluong;
 call tim_maxluong_withinPhongban_inMonth(1,2024 ,6000000.00);
+drop function if exists tinhgio;
+delimiter //
+create function tinhgio (batdau date,ketthuc date,nv char(9))
+returns int
+deterministic
+begin
+declare ra time;
+declare vao time;
+declare raint int;
+declare vaoint int;
+declare gio int;
+declare tt varchar(20);
+DECLARE done INT DEFAULT 0;
+DECLARE cur CURSOR FOR
+        SELECT time(giovao), time(giora), trangthai
+        FROM ngaylamviec n
+        WHERE date(n.giora)>=batdau and date(n.giora)<= ketthuc and n.msnv=nv;
+
+    -- Handler để thoát khi hết con trỏ
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
+    set gio =0;
+    OPEN cur;
+
+    read_loop: LOOP
+        FETCH cur INTO vao, ra,tt ;
+        IF done = 1 THEN
+            LEAVE read_loop;
+        END IF;
+			if(vao<73000) then set vao = 73000; end if;
+			if(ra>203000) then set ra = 203000; end if;
+            set raint=time_to_sec(ra);
+            set vaoint=time_to_sec(vao);
+        -- Chỉ tính tổng giờ nếu trạng thái là "làm"
+        IF tt = 'lam' THEN
+            SET gio = gio + raint - vaoint;
+        END IF;
+    END LOOP;
+
+    -- Đóng con trỏ
+    CLOSE cur;
+return gio;
+ 
+end //
+delimiter ;
+select tinhgio('2024-11-01','2024-11-02', 'NV9900001');
