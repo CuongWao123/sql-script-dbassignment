@@ -161,7 +161,7 @@ create table nhanvien_thamgia_duan(
 create table hoadonthanhtoan (
     masohoadon  char(9) primary key check(masohoadon like '_________') ,
     ngaythanhtoan date not null,
-    manv char (9) ,
+    msnv char (9) ,
     thang int not null ,
     nam year , 
     constraint fk_to_bangluong foreign key (msnv, thang , nam ) references bangluong (msnv, thang, nam) on delete cascade  on update cascade 
@@ -188,14 +188,14 @@ create table dieukhoan_hopdong(
 	ms char (9) not null ,
     dieukhoan varchar (100) not null ,
     primary key (ms,  dieukhoan) ,
-    foreign key (ms) references hopdong (mshd)  
+    foreign key (ms) references hopdong (mshd)  on update cascade on delete cascade
 );
 
 create table taikhoan (
 	sotaikhoan varchar(30) not null ,
     ten_nganhang varchar (20) not null ,
 	msnv char (9),
-    foreign key (msnv) references nhanvien (msnv)
+    foreign key (msnv) references nhanvien (msnv) on update cascade on delete cascade
 );
 
 
