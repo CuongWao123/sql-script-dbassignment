@@ -178,35 +178,4 @@ set t.nvgiamsat = quanly
 where t.nvgiamsat = old.msnv;
 end //
 delimiter ;
-#############################################################################################
--- cap nhat so gio lam viec
-drop trigger if exists cap_nhat_bang_cham_cong;
-DELIMITER //
-CREATE  trigger cap_nhat_bang_cham_cong 
-after update
-on ngaylamviec
-for each row
-BEGIN
-	declare raint int;
-    declare vaoint int;
-	declare ra time;
-    declare vao time;
-    if((select trangthai 
-		from ngaylamviec ng
-        where ng.ngay=new.ngay and ng.thang = new.thang 
-        and ng.nam = new.nam and new.msnv = ng.msnv)='lam')
-        then 
-			select time(new.giovao) into vao;
-			select time(new.giora) into ra;
-			
-			if(vao<73000) then set vao = 73000; end if;
-			if(ra>203000) then set ra = 203000; end if;
-            set raint=time_to_sec(ra);
-            set vaoint=time_to_sec(vao);
-            update bangchamcong
-            set sogiohientai=sogiohientai+raint-vaoint
-            where thang=new.thang and nam = new.nam
-            and msnv = new.msnv;
-		end if;
-END // 
-DELIMITER ;
+
