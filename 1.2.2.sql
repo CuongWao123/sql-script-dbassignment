@@ -115,3 +115,32 @@ UPDATE bangchamcong
 where msnv = 'NV0000010';
 select * from bangluong where msnv = 'NV0000010';
 ################################################################
+-- chinh gio lam them neu qua toi thieu/2
+drop trigger if exists cham_cong;
+delimiter $$
+CREATE TRIGGER cham_cong
+BEFORE UPDATE ON bangchamcong
+FOR EACH ROW
+BEGIN
+    DECLARE lamthem int;
+    DECLARE toithieu int;
+    declare thucte int;
+    SELECT sogiotoithieu INTO toithieu
+    FROM bangchamcong
+    WHERE msnv = NEW.msnv
+    AND thang = NEW.thang
+    AND nam = NEW.nam;
+    set thucte=new.sogiohientai+new.sogiolamthem;
+    IF thucte > toithieu THEN
+		
+        SET lamthem = thucte - toithieu;
+        IF lamthem > toithieu / 2 THEN
+            SET NEW.sogiolamthem = floor(toithieu / 2);
+        ELSE
+            SET NEW.sogiolamthem = lamthem;
+        END IF;
+        set new.sogiohientai = toithieu;
+    END IF;
+    
+END $$
+DELIMITER ;
