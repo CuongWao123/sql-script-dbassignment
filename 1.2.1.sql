@@ -154,8 +154,13 @@ drop procedure if exists delete_nhanvien ;
 DELIMITER $$
 CREATE PROCEDURE delete_nhanvien(IN p_msnv CHAR(9))
 BEGIN
+	
     IF EXISTS (SELECT 1 FROM nhanvien WHERE msnv = p_msnv) THEN
+	begin
+	if(p_msnv=(select p.nv_quanly from phongban p where p.mspb=(select n.mspb from nhanvien n where n.msnv=p_msnv))) then
+	SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Khong the xoa truong phong'; end if;
         DELETE FROM nhanvien WHERE msnv = p_msnv;
+	end;
     ELSE
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Khong co nhan vien nay';
     END IF;
