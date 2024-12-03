@@ -144,3 +144,37 @@ BEGIN
     
 END $$
 DELIMITER ;
+##################################################################
+ 
+drop trigger if exists chuyen_duan;
+delimiter //
+create trigger chuyen_duan
+before delete
+on phongban
+for each row
+begin
+if(old.mspb = 'PB0000000') THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Phong quan ly khong the xoa';
+    END IF;
+update duan
+set ma_phong_ban_quanly = 'PB0000000'
+where ma_phong_ban_quanly = old.mspb;
+end //
+delimiter ;
+
+drop trigger if exists chuyen_giamsat;
+delimiter //
+create trigger chuyen_giamsat
+before delete 
+on nhanvien
+for each row
+begin
+declare quanly char(9); 
+select nv_quanly into quanly
+from phongban p
+where p.mspb= old.mspb;
+update nvthuviec t
+set t.nvgiamsat = quanly
+where t.nvgiamsat = old.msnv;
+end //
+delimiter ;
