@@ -619,7 +619,7 @@ DELIMITER ;
 #################################################################################################
 drop procedure if exists thuviec_thanh_chinhthuc;
 delimiter //
-create procedure thuviec_thanh_chinhthuc(nv char(9),bhxh varchar(20) , luong decimal(10,2),toithieu int)
+create procedure thuviec_thanh_chinhthuc(nv char(9),bhxh varchar(20) , luong decimal(10,2),toithieu int,hanthuviec date)
 begin
 declare hoten varchar(20);
 declare ngaysinh date;
@@ -643,17 +643,19 @@ from nvthuviec n
 where n.msnv= nv;
 if((select enddate 
 from nvthuviec
-where msnv= nv) > date(now()))then update nvthuviec 
-									set enddate= date(now())
+where msnv= nv) > hanthuviec)then update nvthuviec 
+									set enddate= hanthuviec
 									where msnv= nv; end if;
 call insert_nvchinhthuc1(nv,hoten,ngaysinh,gioitinh,cccd,
-pban,bhxh,giamsat,date(now()),'thanh vien',luong,toithieu);
+pban,bhxh,giamsat,(select enddate 
+from nvthuviec
+where msnv= nv),'thanh vien',luong,toithieu);
 CALL insert_into_ls_congviec(
         nv, 
         startday, 
         'khong', 
         'thu viec', 
-        luonghientai(nv),
+        (select luongcoban from bangluong where thang=month(startday)and nam = year(startday) and msnv=nv),
         (SELECT tenphongban FROM phongban WHERE mspb = pban)
     );
 update lscongviec
