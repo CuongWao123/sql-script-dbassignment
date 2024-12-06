@@ -90,8 +90,8 @@ create table ngaylamviec (
     ngay 		int 			not null,
     trangthai 	varchar (20) 	not nulL	 DEFAULT 'LAM' check (trangthai = 'lam'
 		or trangthai = 'nghi tru luong' or trangthai ='nghi tru phep' ),
-    giovao 		timestamp 		not null 		check(time(giovao) >= 73000 and time(giovao) <= 203000  ) ,
-    giora 		timestamp 		not null 		check(time(giora) >= 73000 and time(giora) <= 203000  ) ,
+    giovao 		timestamp 		not null 		 ,
+    giora 		timestamp 		not null 		 ,
     primary key (msnv, thang, nam , ngay) ,
     constraint fk_ngaylamviec_bcc foreign key (msnv , thang , nam ) 
 				references bangchamcong (msnv, thang, nam) 
