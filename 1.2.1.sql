@@ -162,8 +162,13 @@ drop procedure if exists delete_nhanvien ;
 DELIMITER $$
 CREATE PROCEDURE delete_nhanvien(IN p_msnv CHAR(9))
 BEGIN
+	
     IF EXISTS (SELECT 1 FROM nhanvien WHERE msnv = p_msnv) THEN
+	begin
+	if(p_msnv=(select p.nv_quanly from phongban p where p.mspb=(select n.mspb from nhanvien n where n.msnv=p_msnv))) then
+	SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Khong the xoa truong phong'; end if;
         DELETE FROM nhanvien WHERE msnv = p_msnv;
+	end;
     ELSE
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Khong co nhan vien nay';
     END IF;
@@ -613,7 +618,7 @@ DELIMITER ;
 #################################################################################################
 drop procedure if exists thuviec_thanh_chinhthuc;
 delimiter //
-create procedure thuviec_thanh_chinhthuc(nv char(9),bhxh varchar(20) , luong decimal(10,2),toithieu int)
+create procedure thuviec_thanh_chinhthuc(nv char(9),bhxh varchar(20) , luong decimal(10,2),toithieu int,hanthuviec date)
 begin
 declare hoten varchar(20);
 declare ngaysinh date;
@@ -637,17 +642,19 @@ from nvthuviec n
 where n.msnv= nv;
 if((select enddate 
 from nvthuviec
-where msnv= nv) > date(now()))then update nvthuviec 
-									set enddate= date(now())
+where msnv= nv) > hanthuviec)then update nvthuviec 
+									set enddate= hanthuviec
 									where msnv= nv; end if;
 call insert_nvchinhthuc1(nv,hoten,ngaysinh,gioitinh,cccd,
-pban,bhxh,giamsat,date(now()),'thanh vien',luong,toithieu);
+pban,bhxh,giamsat,(select enddate 
+from nvthuviec
+where msnv= nv),'thanh vien',luong,toithieu);
 CALL insert_into_ls_congviec(
         nv, 
         startday, 
         'khong', 
         'thu viec', 
-        luonghientai(nv),
+        (select luongcoban from bangluong where thang=month(startday)and nam = year(startday) and msnv=nv),
         (SELECT tenphongban FROM phongban WHERE mspb = pban)
     );
 update lscongviec
@@ -729,6 +736,290 @@ DELIMITER ;
 -- ############################################################
 select * from phongban;
 insert nhanvien(msnv, hoten , ngaysinh, gioitinh , cccd , loainhanvien , mspb) values ('NV0000011' ,'Cris Phan' , '1990-12-12' , 'nam' ,'120406080000' ,'chinh thuc' , 'PB0000001');
+
+-- phan cua lyquang
+-- procedure them vao bang nvemail
+drop procedure if exists insert_into_nvemail;
+DELIMITER $$
+CREATE PROCEDURE insert_into_nvemail (
+    IN p_msnv CHAR(9),
+    IN p_email VARCHAR(40)
+)
+BEGIN
+    DECLARE msg VARCHAR(255);
+    -- Kiểm tra nếu nhân viên có tồn tại trong bảng nhanvien
+    IF p_email IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Hãy thêm Email!';
+	end if;
+     IF p_msnv IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Hãy nhập mã số nhân viên!';
+	end if;
+  IF NOT EXISTS (SELECT 1 FROM nhanvien WHERE msnv = p_msnv) THEN
+       SET msg = CONCAT('Không tồn tại nhân viên với mã số: ', p_msnv);
+     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = msg;
+  END IF;
+    -- Thêm email vào bảng nvEMAIL
+    INSERT INTO nvEMAIL (msnv, email)
+    VALUES (p_msnv, p_email);
+END$$
+DELIMITER ;
+
+-- procedure xóa một record  nvemail
+drop procedure if exists delete_nvemail;
+DELIMITER $$
+CREATE PROCEDURE delete_nvemail (
+    IN p_msnv CHAR(9),
+    IN p_email VARCHAR(40)
+)
+BEGIN
+    DECLARE msg VARCHAR(255);
+    IF p_email IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Hãy thêm Email!';
+	end if;
+     IF p_msnv IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Hãy nhập mã số nhân viên!';
+	end if;
+    -- Kiểm tra nếu email tồn tại
+    IF NOT EXISTS (SELECT 1 FROM nvEMAIL WHERE msnv = p_msnv AND email = p_email) THEN
+        SET msg = CONCAT('Không tồn tại email: ', p_email, ' cho nhân viên: ', p_msnv);
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = msg;
+    END IF;
+
+    -- Xóa email khỏi bảng nvEMAIL
+    DELETE FROM nvEMAIL
+    WHERE msnv = p_msnv AND email = p_email;
+END$$
+DELIMITER ;
+
+-- sửa email
+drop procedure if exists UPDATE_NVEMAIL;
+DELIMITER $$
+
+CREATE PROCEDURE UPDATE_NVEMAIL (
+    IN p_msnv CHAR(9),
+    IN p_old_email VARCHAR(40),
+    IN p_new_email VARCHAR(40)
+)
+BEGIN
+    DECLARE msg VARCHAR(255);
+     IF p_old_email IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Hãy thêm Email cũ !';
+	end if;
+     IF p_new_email IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Hãy thêm Email mới !';
+	end if;
+     IF p_msnv IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Hãy nhập mã số nhân viên!';
+	end if;
+    -- Kiểm tra nếu email cũ tồn tại
+    IF NOT EXISTS (SELECT 1 FROM nvEMAIL WHERE msnv = p_msnv AND email = p_old_email) THEN
+        SET msg = CONCAT('Không tồn tại email: ', p_old_email, ' cho nhân viên: ', p_msnv);
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = msg;
+    END IF;
+
+    -- Sửa email
+    UPDATE nvEMAIL
+    SET email = p_new_email
+    WHERE msnv = p_msnv AND email = p_old_email;
+END$$
+DELIMITER ;
+
+
+-- them nvsdt
+drop procedure if exists insert_into_nvsdt;
+DELIMITER $$
+
+CREATE PROCEDURE insert_into_nvsdt(
+    IN p_msnv CHAR(9),
+    IN p_sdt CHAR(10)
+)
+BEGIN
+  DECLARE msg VARCHAR(255);
+	IF p_sdt IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Hãy thêm số điện thoại!';
+	end if;
+     IF p_msnv IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Hãy nhập mã số nhân viên!';
+	end if;
+    -- Check if the phone number is valid (10 digits)
+    IF p_sdt REGEXP '^[0-9]{10}$' THEN
+
+        IF EXISTS (SELECT 1 FROM nhanvien WHERE msnv = p_msnv) THEN
+            -- Insert the phone number into nvSDT table
+            INSERT INTO nvSDT (msnv, sdt) VALUES (p_msnv, p_sdt);
+        ELSE
+          SET msg = CONCAT('Không tồn tại nhân viên với mã số: ', p_msnv );
+            SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = msg ;
+        END IF;
+    ELSE
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Số diện thoại bạn nhập không đúng format, Số điện thoại cần 10 số';
+    END IF;
+END$$
+DELIMITER ;
+
+-- xoa nvsdt
+drop procedure if exists delete_nvsdt;
+DELIMITER $$
+CREATE PROCEDURE delete_nvsdt( IN p_msnv CHAR(9) , IN p_sdt CHAR(10))
+BEGIN 
+    DECLARE msg VARCHAR(255);
+    IF p_sdt IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Hãy thêm số điện thoại!';
+	end if;
+     IF p_msnv IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Hãy nhập mã số nhân viên!';
+	end if;
+    -- kiem tra neu sdt ton tai
+    IF not exists ( select 1 from nvsdt where msnv = p_msnv AND sdt = p_sdt) then
+    set msg = CONCAT('Không tồn tại số điện thoại : ', p_sdt,'cho nhan vien' , p_msnv);
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = msg;
+    END IF;
+	DELETE FROM nvsdt
+    where msnv= p_msnv and sdt = p_sdt;
+    END$$
+DELIMITER ;
+
+-- update nvsdt
+drop procedure if exists update_nvsdt;
+DELIMITER $$
+CREATE PROCEDURE update_nvsdt( 
+						IN p_msnv CHAR(9), 
+                        in p_old_sdt varchar(10),
+                        in p_new_sdt varchar(10) 
+)
+begin
+    declare msg varchar(255);
+	IF p_old_sdt IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Hãy thêm số điện thoại cũ !';
+	end if;
+    IF p_new_sdt IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Hãy thêm số điện thoại mới !';
+	end if;
+     IF p_msnv IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Hãy nhập mã số nhân viên!';
+	end if;
+	
+    if not exists (select 1 from nvsdt where msnv = p_msnv AND sdt = p_old_sdt) then
+    set msg = Concat('Không tồn tại số điện thoại : ', p_old_sdt, 'cho nhan vien' , p_msnv);
+    signal sqlstate '45000' set message_text = msg;
+end if;
+	Update nvsdt
+    set sdt = p_new_sdt
+    where msnv = p_msnv AND sdt = p_old_sdt;
+END$$
+DELIMITER ;
+
+-- them nvdiachi
+drop procedure if exists insert_into_nvdiachi;
+DELIMITER $$
+CREATE PROCEDURE insert_into_nvdiachi(
+    IN p_msnv CHAR(9),
+    IN p_sonha VARCHAR(30),
+    IN p_tenduong VARCHAR(30),
+    IN p_phuong VARCHAR(30),
+    IN p_tinhthanhpho VARCHAR(30)
+)
+BEGIN
+    -- Kiểm tra mã số nhân viên có tồn tại trong bảng nhanvien
+    IF EXISTS (SELECT 1 FROM nhanvien WHERE msnv = p_msnv) THEN
+        -- Thêm địa chỉ vào bảng nvDIACHI
+        INSERT INTO nvDIACHI (msnv, sonha, tenduong, phuong, tinhthanhpho)
+        VALUES (p_msnv, p_sonha, p_tenduong, p_phuong, p_tinhthanhpho);
+    ELSE
+        -- Báo lỗi nếu nhân viên không tồn tại
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Khong tồn tại nhân viên đó !  ';
+    END IF;
+END$$
+DELIMITER ;
+
+-- xoa nvdiachi
+drop procedure if exists delete_nvdiachi;
+DELIMITER $$
+CREATE PROCEDURE delete_nvdiachi( IN p_msnv char(9), 
+							in p_sonha varchar(30), 
+                            in p_tenduong varchar(30),
+                            in p_phuong varchar(30),
+                            in p_tinhthanhpho varchar(30)
+)  
+begin 
+	if exists ( select 1 from nvdiachi
+				where msnv = p_msnv
+                and sonha = p_sonha
+                and tenduong = p_tenduong
+                and phuong = p_phuong
+                and tinhthanhpho = p_tinhthanhpho 
+                ) then
+                delete from nvdiachi
+                where msnv = p_msnv
+                and sonha = p_sonha
+                and tenduong = p_tenduong
+                and phuong = p_phuong
+                and tinhthanhpho = p_tinhthanhpho ;
+		else
+        signal sqlstate '45000' set Message_text='Địa chỉ này không tồn tại ! ';
+        end if;
+end$$
+DELIMITER ;
+
+-- update nvdiachi
+DROP PROCEDURE IF EXISTS update_nvdiachi;
+DELIMITER $$
+
+CREATE PROCEDURE update_nvdiachi( 
+    IN p_msnv CHAR(9),
+    IN p_old_sonha VARCHAR(30),
+    IN p_old_tenduong VARCHAR(30),
+    IN p_old_phuong VARCHAR(30),
+    IN p_old_tinhthanhpho VARCHAR(30),
+    IN p_new_sonha VARCHAR(30),
+    IN p_new_tenduong VARCHAR(30),
+    IN p_new_phuong VARCHAR(30),
+    IN p_new_tinhthanhpho VARCHAR(30)
+)
+BEGIN
+    -- Check if the old address exists for the given employee
+    IF EXISTS (
+        SELECT 1
+        FROM nvDIACHI
+        WHERE msnv = p_msnv
+          AND sonha = p_old_sonha
+          AND tenduong = p_old_tenduong
+          AND phuong = p_old_phuong
+          AND tinhthanhpho = p_old_tinhthanhpho
+    ) THEN
+        -- Update the address
+        UPDATE nvDIACHI
+        SET 
+            sonha = p_new_sonha,
+            tenduong = p_new_tenduong,
+            phuong = p_new_phuong,
+            tinhthanhpho = p_new_tinhthanhpho
+        WHERE 
+            msnv = p_msnv
+            AND sonha = p_old_sonha
+            AND tenduong = p_old_tenduong
+            AND phuong = p_old_phuong
+            AND tinhthanhpho = p_old_tinhthanhpho;
+    ELSE
+        -- Raise an error if the old address doesn't exist
+        SIGNAL SQLSTATE '45000' 
+            SET MESSAGE_TEXT = 'Địa chỉ cũ không tìm thấy';
+    END IF;
+END$$
+DELIMITER ;
+
+
+
+
+  
+
+
+
+
+
+
+
+
 
 
 select * from phongban;
