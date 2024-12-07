@@ -61,18 +61,63 @@ end //
 delimiter ;
 #################################################################################################
 -- khong cho cap nhat khi gio ra khac gio vao
-drop trigger if exists vao_bang_ra;
-delimiter ??
-create trigger vao_bang_ra
-before update 
-on ngaylamviec for each row
-begin
-if(not(old.giovao=old.giora)) then 
-SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Khong the cap nhat ngay lam viec';
-end if;
-end ??
-delimiter ;
+-- drop trigger if exists vao_bang_ra;
+-- delimiter ??
+-- create trigger vao_bang_ra
+-- before update 
+-- on ngaylamviec for each row
+-- begin
+-- if(not(old.giovao=old.giora)) then 
+-- SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Khong the cap nhat ngay lam viec';
+-- end if;
+-- end ??
+-- delimiter ;
 #############################################################################################
+-- cap nhat so gio lam viec
+drop function if exists tinhgiolamtrongthang;
+delimiter //
+create function tinhgiolamtrongthang (t int,n int,nv char(9))
+returns int
+deterministic
+begin
+declare ra time;
+declare vao time;
+declare raint int;
+declare vaoint int;
+declare gio int;
+declare tt varchar(20);
+DECLARE done INT DEFAULT 0;
+DECLARE cur CURSOR FOR
+        SELECT time(giovao), time(giora), trangthai
+        FROM ngaylamviec n
+        WHERE n.thang =t and n.nam = n and n.msnv=nv;
+
+    -- Handler để thoát khi hết con trỏ
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
+    set gio =0;
+    OPEN cur;
+
+    read_loop: LOOP
+        FETCH cur INTO vao, ra,tt ;
+        IF done = 1 THEN
+            LEAVE read_loop;
+        END IF;
+			if(vao<73000) then set vao = 73000; end if;
+			if(ra>203000) then set ra = 203000; end if;
+            set raint=time_to_sec(ra);
+            set vaoint=time_to_sec(vao);
+        -- Chỉ tính tổng giờ nếu trạng thái là "làm"
+        IF tt = 'lam' THEN
+            SET gio = gio + raint - vaoint;
+        END IF;
+    END LOOP;
+
+    -- Đóng con trỏ
+    CLOSE cur;
+return gio;
+ 
+end //
+delimiter ;
 -- cap nhat so gio lam viec
 drop trigger if exists cap_nhat_bang_cham_cong;
 DELIMITER //
@@ -81,27 +126,15 @@ after update
 on ngaylamviec
 for each row
 BEGIN
-	declare raint int;
-    declare vaoint int;
-	declare ra time;
-    declare vao time;
-    if((select trangthai 
-		from ngaylamviec ng
-        where ng.ngay=new.ngay and ng.thang = new.thang 
-        and ng.nam = new.nam and new.msnv = ng.msnv)='lam')
-        then 
-			select time(new.giovao) into vao;
-			select time(new.giora) into ra;
-			
-			if(vao<73000) then set vao = 73000; end if;
-			if(ra>203000) then set ra = 203000; end if;
-            set raint=time_to_sec(ra);
-            set vaoint=time_to_sec(vao);
+	
             update bangchamcong
-            set sogiohientai=sogiohientai+raint-vaoint
+            set sogiohientai=tinhgiolamtrongthang(new.thang,new.nam,new.msnv)
             where thang=new.thang and nam = new.nam
             and msnv = new.msnv;
-		end if;
+		update bangchamcong
+            set sogiohientai=tinhgiolamtrongthang(old.thang,old.nam,old.msnv)
+            where thang=old.thang and nam = old.nam
+            and msnv = old.msnv;
 END // 
 DELIMITER ;
 ################################################################
@@ -115,14 +148,14 @@ BEGIN
     DECLARE lamthem int;
     DECLARE toithieu int;
     declare thucte int;
-    SELECT sogiotoithieu INTO toithieu
+    SELECT sogiotoithieu,sogiohientai INTO toithieu,thucte
     FROM bangchamcong
     WHERE msnv = NEW.msnv
     AND thang = NEW.thang
     AND nam = NEW.nam;
-    set thucte=new.sogiohientai+new.sogiolamthem;
+    -- set thucte=new.sogiohientai+new.sogiolamthem;
     IF thucte > toithieu THEN
-		
+		begin
         SET lamthem = thucte - toithieu;
         IF lamthem > toithieu / 2 THEN
             SET NEW.sogiolamthem = floor(toithieu / 2);
@@ -130,6 +163,9 @@ BEGIN
             SET NEW.sogiolamthem = lamthem;
         END IF;
         set new.sogiohientai = toithieu;
+        end;
+        else 
+        set new.sogiolamthem=0;
     END IF;
     
 END $$
