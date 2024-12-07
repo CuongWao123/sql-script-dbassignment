@@ -170,3 +170,47 @@ BEGIN
     
 END $$
 DELIMITER ;
+-- ###############################################################################################
+-- luong co ban cua truong phong khong thap hon cac nhan vien trong cung phong
+drop trigger if exists luongtruongphongcaonhat_update;
+delimiter //
+create trigger luongtruongphongcaonhat_update
+before update
+on bangluong 
+for each row
+begin
+declare luongtruongphong decimal(10,2);
+select b.luongcoban into luongtruongphong
+from bangluong b
+where b.thang=new.thang and b.nam=new.nam 
+and b.msnv = (select nv_quanly from phongban p where p.mspb=(select n.mspb from nhanvien n where n.msnv=new.msnv) );
+if luongtruongphong<new.luongcoban then
+begin
+set new.hotrokhac=new.hotrokhac+new.luongcoban-luongtruongphong;
+set new.luongcoban =luongtruongphong;
+end;
+end if;
+
+end //
+delimiter ;
+drop trigger if exists luongtruongphongcaonhat_insert;
+delimiter //
+create trigger luongtruongphongcaonhat_insert
+before insert
+on bangluong 
+for each row
+begin
+declare luongtruongphong decimal(10,2);
+select b.luongcoban into luongtruongphong
+from bangluong b
+where b.thang=new.thang and b.nam=new.nam 
+and b.msnv = (select nv_quanly from phongban p where p.mspb=(select n.mspb from nhanvien n where n.msnv=new.msnv) );
+if luongtruongphong<new.luongcoban then
+begin
+set new.hotrokhac=new.hotrokhac+new.luongcoban-luongtruongphong;
+set new.luongcoban =luongtruongphong;
+end;
+end if;
+
+end //
+delimiter ;
