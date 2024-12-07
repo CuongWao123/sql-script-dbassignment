@@ -149,6 +149,14 @@ BEGIN
 	select 'Thanh cong';
 END //
 DELIMITER ;
+CALL insert_nvchinhthuc ('NV0023456','Nguyen Van A', '2000-01-01', 'nam', '123456789010', 
+'PB0000001', 'BHXH123456789', 'NV0000002',  '2024-12-01', 'Nhân viên',  10000.00,  160  );
+select * from nhanvien ;
+select * from nvchinhthuc ;
+select * from bangluong;
+select * from bangchamcong;
+
+select * from phongban;
 --              Xoa 1 nhan vien 
 drop procedure if exists delete_nhanvien ;
 DELIMITER $$
@@ -162,6 +170,8 @@ BEGIN
     select 'Thanh cong';
 END $$
 DELIMITER ;
+select * from nhanvien;
+call delete_nhanvien ('NV0023456')
 -- 				Sua ten mot nhan vien
 DELIMITER $$
 CREATE PROCEDURE sua_ten_nhanvien(
@@ -179,24 +189,8 @@ BEGIN
     select 'Thanh cong';
 END $$
 DELIMITER ;
---  ------------------- test 
-select * from nhanvien as a ,nvchinhthuc as b, lscongviec as c , bangluong as d , bangchamcong as e
-where a.msnv = b.msnv and b.msnv= c.msnv and c.msnv = d.msnv and d.msnv = e.msnv ;
-select * from nvchinhthuc;
-CALL insert_nvchinhthuc(
-    'NV0000015', 
-    'Le Thi Duyen', 
-    '1990-12-12', 
-    'nu', 
-    '120400000011', 
-    'PB0000001', 
-    'BHXH0007', 
-	'NV0000009', 
-    '2000-01-01', 
-    'Nhan vien', 
-    7000.00 ,
-    10000 
-);
+select * from nhanvien;
+call sua_ten_nhanvien('NV0000000', "Adam Smith");
 ############################################################################
 -- 					them du an
 drop procedure if exists them_duan;
@@ -228,6 +222,8 @@ BEGIN
 END $$
 DELIMITER ;
 -- 					xoa du an
+call them_duan('',100000 ,'2024-10-10' ,'DA manh cuong','manh cuong dep zai' ,'PB123123' );
+
 drop procedure if exists xoa_duan;
 DELIMITER $$
 CREATE PROCEDURE xoa_duan (
@@ -282,6 +278,8 @@ END $$
 DELIMITER ;
 ###############################################################
 -- 				them phong ban
+select * from lscongviec where msnv= 'NV9900002';
+call THEM_PHONGBAN ('PB0000009' ,'Quản lý các dự án trong công ty','Phong ban quản lý dự án' ,  'NV9900002'  );
 DROP PROCEDURE IF EXISTS THEM_PHONGBAN;
 DELIMITER $$
 CREATE PROCEDURE them_phongban (
@@ -378,6 +376,7 @@ create procedure tinh_luong(
     in in_antrua decimal(10,2),
     in in_hotrokhac decimal(10,2)
 )
+select * from phongban;
 begin
 	
 	declare loai_nv varchar(10);
@@ -728,6 +727,11 @@ END //
 DELIMITER ;
 
 -- ############################################################
+select * from phongban;
+insert nhanvien(msnv, hoten , ngaysinh, gioitinh , cccd , loainhanvien , mspb) values ('NV0000011' ,'Cris Phan' , '1990-12-12' , 'nam' ,'120406080000' ,'chinh thuc' , 'PB0000001');
 
 
+select * from phongban;
+delete from nhanvien where msnv  = 'NV0000011';
+select * from phongban;
 

@@ -66,28 +66,6 @@ values
 ('NV0000009', 5,2024, 160,150,20);
 select dem_nv_khong_dat_chi_tieu(2024) as ketqua;
 #########################################################
-
-
-drop PROCEDURE if exists tim_maxluong_withinPhongban_inMonth ;
-DELIMITER //
-CREATE PROCEDURE tim_maxluong_withinPhongban_inMonth ( t int , n int  , d dec(10,2) )
-BEGIN
-    select distinct nv.hoten, nv.msnv , bl2.luongthucte
-    from (
-        select max(bl.luongthucte) as maxluong , nv.mspb as mspb
-        from bangluong as bl , nhanvien as nv
-        where bl.thang =  t and bl.nam =  n and nv.msnv = bl.msnv
-        group by nv.mspb
-    ) as m , nhanvien as nv, bangluong as bl2 
-    where   nv.mspb = m.mspb and bl2.luongthucte = m.maxluong and nv.msnv = bl2.msnv
-    GROUP BY nv.hoten, nv.msnv, bl2.luongthucte
-    HAVING bl2.luongthucte >  d 
-    ORDER BY bl2.luongthucte;
-END // 
-DELIMITER ;
-
-select * from bangluong;
-call tim_maxluong_withinPhongban_inMonth(1,2024 ,6000000.00);
 drop function if exists tinhgio;
 delimiter //
 create function tinhgio (batdau date,ketthuc date,nv char(9))
@@ -133,3 +111,76 @@ return gio;
 end //
 delimiter ;
 select tinhgio('2024-11-01','2024-11-02', 'NV9900001');
+
+#########################################
+-- Tính tổng tiền phải trả trong tháng , năm , với các nhân viên có số giờ làm thêm ở mức tối đa thưởng 20% lương cơ bản , còn số giờ làm thêm > ½  tối đa 10%
+-- Tính tổng số tiền lương phải trả trong tháng , năm  đó , với các nhân viên có số giờ làm thêm = số giờ tối đa thì thưởng thêm 50% lương cơ bản 
+-- , còn số giờ làm thêm  > 1/2 số giờ tối đa thì thưởng 25% lương cơ bản 
+drop function if exists caculate_salary_to_pay;
+DELIMITER //
+
+CREATE FUNCTION caculate_salary_to_pay(inp_year INT, inp_month INT)
+RETURNS DECIMAL(15,2)
+DETERMINISTIC
+BEGIN
+    -- Khai báo biến
+    DECLARE done INT DEFAULT 0;
+    DECLARE msnv CHAR(9);
+    DECLARE sum_salary_to_pay DECIMAL(15,2) DEFAULT 0; 
+    DECLARE toida int;
+    DECLARE lamthem int;
+    DECLARE ltt DECIMAL(10,2);
+    DECLARE lcb DECIMAL(10,2);
+
+    -- Khai báo con trỏ
+    DECLARE cur CURSOR FOR 
+        SELECT bl.msnv, bcc.sogiotoithieu / 2, bcc.sogiolamthem, bl.luongthucte, bl.luongcoban
+        FROM bangluong AS bl
+        JOIN bangchamcong AS bcc ON bl.msnv = bcc.msnv 
+        WHERE bl.thang = bcc.thang 
+          AND bl.nam = bcc.nam 
+          AND bl.thang = inp_month 
+          AND bl.nam = inp_year;
+
+    -- Khai báo handler khi hết con trỏ
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
+
+    -- Mở con trỏ
+    OPEN cur;
+
+    -- Bắt đầu vòng lặp
+    read_loop: LOOP
+        FETCH cur INTO msnv, toida, lamthem, ltt, lcb;
+        IF done = 1 THEN
+            LEAVE read_loop;
+        END IF;
+
+        -- Gán giá trị đúng cách với :=
+        IF lamthem = toida THEN
+            set  sum_salary_to_pay = sum_salary_to_pay + ltt + lcb * 0.5;
+        ELSEIF lamthem > toida / 2 THEN
+            set sum_salary_to_pay = sum_salary_to_pay + ltt + lcb * 0.25;
+        ELSE
+            set sum_salary_to_pay = sum_salary_to_pay + ltt; 
+        END IF;
+
+    END LOOP;
+
+    -- Đóng con trỏ
+    CLOSE cur;
+
+    -- Trả về tổng lương
+    RETURN sum_salary_to_pay;
+END //
+
+DELIMITER ;
+ SELECT bl.maso_nv, bcc.sogio_toithieu / 2, bcc.sogio_lamthem, bl.luongthucte, bl.luongcoban
+        FROM bangluong AS bl
+        JOIN bangchamcong AS bcc ON bl.maso_nv = bcc.maso_nv 
+        WHERE bl.thang = bcc.thang 
+          AND bl.nam = bcc.nam 
+          AND bl.thang = 11
+          AND bl.nam = 2023;
+          
+select * from bangchamcong where thang = 11 and nam = 2024;
+select caculate_salary_to_pay ( 2024 , 11)
