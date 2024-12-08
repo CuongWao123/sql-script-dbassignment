@@ -649,11 +649,15 @@ declare cccd char(12);
 declare pban char(9);
 declare giamsat char(9);
 declare startday date;
+
 IF NOT EXISTS (SELECT 1 FROM nhanvien WHERE nv = msnv) THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Ma nhan vien khong ton tai!';
     END IF;
 IF EXISTS (SELECT 1 FROM nvchinhthuc WHERE nv = msnv) THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Nhan vien nay da la nhan vien chinh thuc';
+    END IF;
+IF hanthuviec>curdate() THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Nhan vien nay chua hoan thanh thu viec';
     END IF;
 select n.hoten, n.ngaysinh, n.gioitinh,n.cccd,n.mspb 
 into hoten,ngaysinh,gioitinh,cccd,pban
@@ -694,31 +698,46 @@ where msnv=nv and loainhanvien='thu viec';
 select "thao tac thanh cong";
 end //
 delimiter ;
+
 ###########################################################################################
 drop procedure if exists chuyen_viec;
-delimiter //
-create procedure chuyen_viec(nv char(9),luong decimal(10,2), chuc varchar(20),pban char(9),loai varchar(10))
-begin
-	IF NOT EXISTS (SELECT 1 FROM nhanvien WHERE nv = msnv) THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Ma nhan vien khong ton tai!';
-    END IF;
-IF NOT EXISTS (SELECT 1 FROM phongban WHERE mspb = masophongban) THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Ma phong ban khong ton tai!';
-     END IF;
-update nhanvien
-set mspb = pban
-where msnv=nv;
-call insert_into_ls_congviec (
-    nv,
-    curdate(),
-    chuc,
-    loai,
-    luong,
-    (SELECT tenphongban FROM phongban WHERE mspb = pban)
-);
-select "thao tac thanh cong";
-end //
-delimiter ;
+	delimiter //
+	create procedure chuyen_viec(nv char(9),luong decimal(10,2), chuc varchar(20),pban char(9),loai varchar(10),toithieu int,sta date)
+	begin
+	declare laststa date;
+	declare newsta date;
+		IF NOT EXISTS (SELECT 1 FROM nhanvien WHERE nv = msnv) THEN
+			SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Ma nhan vien khong ton tai!';
+		END IF;
+		IF NOT EXISTS (SELECT 1 FROM nvchinhthuc WHERE nv = msnv) THEN
+			SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Nhan vien thu viec khong duoc phep chuyen viec';
+		END IF;
+	IF NOT EXISTS (SELECT 1 FROM phongban WHERE mspb = pban) THEN
+			SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Ma phong ban khong ton tai!';
+		 END IF;
+		 select l.startdate into laststa
+		 from lscongviec l
+		 where l.msnv = nv and stt>=all( select ls.stt from lscongviec ls where ls.msnv=nv);
+		 IF sta-laststa<=60 THEN
+			SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Chua du thoi gian de chuyen viec';
+		 END IF;
+	update nhanvien
+	set mspb = pban
+	where msnv=nv;
+	call insert_into_ls_congviec (
+		nv,
+		sta,
+		chuc,
+		loai,
+		luong,
+		(SELECT tenphongban FROM phongban WHERE mspb = pban)
+	);
+	 SET newsta = DATE_ADD(sta, INTERVAL 1 MONTH);
+	insert into bangchamcong(msnv,sogiotoithieu,thang,nam,sogiohientai,sogiolamthem) values(nv,toithieu,month(newsta),year(newsta),0,0);
+	insert into bangluong(msnv,luongcoban,thang,nam) values(nv,luong,month(newsta),year(newsta));
+	select "thao tac thanh cong";
+	end //
+	delimiter ;
 ###############################################################################################
 DROP PROCEDURE IF EXISTS insert_nvthuviec;
 DELIMITER //
