@@ -394,6 +394,8 @@ begin
     declare luong_tru_ko_du_gio decimal(10,2);
     declare in_gio_toi_thieu int;
     declare in_gio_hien_tai int;
+    declare thang_sau int;
+    declare nam_sau int;
     
     -- validate
     if not exists (select 1 from nhanvien where msnv = in_msnv) then
@@ -488,7 +490,27 @@ begin
             thue = in_thue,
             luongthucte = total_luong
     where in_msnv = bangluong.msnv and in_thang = bangluong.thang and in_nam = bangluong.nam;
-
+    
+    -- tìm tháng sau
+	-- tìm năm sau
+    if (in_thang = 12) then
+		set thang_sau = 1;
+        set nam_sau = in_nam + 1;
+	else
+		set thang_sau = in_thang + 1;
+        set nam_sau = in_nam;
+    end if;
+    
+    -- tạo bảng chấm công cho tháng sau
+    if not exists (select 1 from bangchamcong where mnsv = in_msnv and thang = thang_sau and nam = nam_sau) then
+		insert into bangchamcong (msnv,thang,nam, sogiohientai, sogiotoithieu, sogiolamthem)
+        values (in_msnv, thang_sau, nam_sau, 0 , in_gio_toi_thieu , 0);
+    end if;
+    -- tạo bảng lương cho tháng sau
+	if not exists (select 1 from bangluong where mnsv = in_msnv and thang = thang_sau and nam = nam_sau) then
+		insert into bangluong (msnv,thang,nam, luongcoban)
+        values (in_msnv, thang_sau, nam_sau, in_luongcoban);
+    end if;
 end
 $$
 DELIMITER ;
