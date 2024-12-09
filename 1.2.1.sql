@@ -850,6 +850,7 @@ BEGIN
     -- Xóa email khỏi bảng nvEMAIL
     DELETE FROM nvEMAIL
     WHERE msnv = p_msnv AND email = p_email;
+     select"Xoa thanh cong";
 END$$
 DELIMITER ;
 
@@ -883,6 +884,7 @@ BEGIN
     UPDATE nvEMAIL
     SET email = p_new_email
     WHERE msnv = p_msnv AND email = p_old_email;
+    select"Sua thanh cong";
 END$$
 DELIMITER ;
 
@@ -940,6 +942,7 @@ BEGIN
     END IF;
 	DELETE FROM nvsdt
     where msnv= p_msnv and sdt = p_sdt;
+    select"Xoa thanh cong";
     END$$
 DELIMITER ;
 
@@ -970,6 +973,7 @@ end if;
 	Update nvsdt
     set sdt = p_new_sdt
     where msnv = p_msnv AND sdt = p_old_sdt;
+    select"Sua thanh cong";
 END$$
 DELIMITER ;
 
@@ -1024,6 +1028,7 @@ begin
 		else
         signal sqlstate '45000' set Message_text='Địa chỉ này không tồn tại ! ';
         end if;
+        select"Xoa thanh cong";
 end$$
 DELIMITER ;
 
@@ -1071,6 +1076,7 @@ BEGIN
         SIGNAL SQLSTATE '45000' 
             SET MESSAGE_TEXT = 'Địa chỉ cũ không tìm thấy';
     END IF;
+    select "Cap nhat thanh cong";
 END$$
 DELIMITER ;
 
