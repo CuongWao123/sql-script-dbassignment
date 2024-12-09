@@ -184,13 +184,14 @@ begin
 	from bangluong b
 	where b.thang=new.thang and b.nam=new.nam 
 	and b.msnv = (select nv_quanly from phongban p where p.mspb=(select n.mspb from nhanvien n where n.msnv=new.msnv) );
+    if not(new.msnv = (select nv_quanly from phongban p1 where p1.mspb=(select n1.mspb from nhanvien n1 where n1.msnv=new.msnv)))
+    then
 	if luongtruongphong<new.luongcoban then
 		begin
 			set new.hotrokhac=new.hotrokhac+new.luongcoban-luongtruongphong;
-			set new.luongcoban =luongtruongphong;
-		end;
+			set new.luongcoban =luongtruongphong;end;
 	end if;
-
+    end if;
 end //
 delimiter ;
 drop trigger if exists luongtruongphongcaonhat_insert;
@@ -204,13 +205,26 @@ begin
 	select b.luongcoban into luongtruongphong
 	from bangluong b
 	where b.thang=new.thang and b.nam=new.nam 
-	and b.msnv = (select nv_quanly from phongban p where p.mspb=(select n.mspb from nhanvien n where n.msnv=new.msnv) );
+	and b.msnv = (select nv_quanly from phongban p where p.mspb=(select n.mspb from nhanvien n where n.msnv=new.msnv));
+    if luongtruongphong is null and 
+    not(new.msnv = (select nv_quanly from phongban p where p.mspb=(select n.mspb from nhanvien n where n.msnv=new.msnv)))
+    then SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Chua co truong phong khong the them';end if;
 	if luongtruongphong<new.luongcoban then
 		begin
 			set new.hotrokhac=new.hotrokhac+new.luongcoban-luongtruongphong;
-			set new.luongcoban =luongtruongphong;
-		end;
+			set new.luongcoban =luongtruongphong;end;
 	end if;
-
+end //
+delimiter ;
+drop trigger if exists luongtruongphongcaonhat_delete;
+delimiter //
+create trigger luongtruongphongcaonhat_delete
+before delete
+on bangluong 
+for each row
+begin
+if (old.msnv = (select nv_quanly from phongban p1 where p1.mspb=(select n1.mspb from nhanvien n1 where n1.msnv=old.msnv)))
+then SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Nhan vien nay la truong phong, khong the xoa';
+end if;
 end //
 delimiter ;
