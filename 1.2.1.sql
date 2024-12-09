@@ -788,7 +788,7 @@ insert nhanvien(msnv, hoten , ngaysinh, gioitinh , cccd , loainhanvien , mspb) v
 
 -- phan cua lyquang
 -- procedure them vao bang nvemail
-drop procedure if exists insert_into_nvemail;
+DROP PROCEDURE IF EXISTS insert_into_nvemail;
 DELIMITER $$
 CREATE PROCEDURE insert_into_nvemail (
     IN p_msnv CHAR(9),
@@ -796,22 +796,35 @@ CREATE PROCEDURE insert_into_nvemail (
 )
 BEGIN
     DECLARE msg VARCHAR(255);
-    -- Kiểm tra nếu nhân viên có tồn tại trong bảng nhanvien
+    
+    -- Kiểm tra nếu email bị thiếu
     IF p_email IS NULL THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Hãy thêm Email!';
-	end if;
-     IF p_msnv IS NULL THEN
+    END IF;
+
+    -- Kiểm tra nếu mã số nhân viên bị thiếu
+    IF p_msnv IS NULL THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Hãy nhập mã số nhân viên!';
-	end if;
-  IF NOT EXISTS (SELECT 1 FROM nhanvien WHERE msnv = p_msnv) THEN
-       SET msg = CONCAT('Không tồn tại nhân viên với mã số: ', p_msnv);
-     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = msg;
-  END IF;
+    END IF;
+
+    -- Kiểm tra định dạng email (phải chứa @)
+    IF p_email NOT LIKE '%@%' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Email không đúng định dạng phải chứa @ !';
+    END IF;
+
+    -- Kiểm tra nếu nhân viên tồn tại trong bảng nhanvien
+    IF NOT EXISTS (SELECT 1 FROM nhanvien WHERE msnv = p_msnv) THEN
+        SET msg = CONCAT('Không tồn tại nhân viên với mã số: ', p_msnv);
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = msg;
+    END IF;
+
     -- Thêm email vào bảng nvEMAIL
     INSERT INTO nvEMAIL (msnv, email)
     VALUES (p_msnv, p_email);
+    select 'them email thanh cong';
 END$$
 DELIMITER ;
+select*from nvemail;
 
 -- procedure xóa một record  nvemail
 drop procedure if exists delete_nvemail;
@@ -876,8 +889,8 @@ DELIMITER ;
 
 -- them nvsdt
 drop procedure if exists insert_into_nvsdt;
-DELIMITER $$
-
+delimiter $$
+-- update insert_nvsdt
 CREATE PROCEDURE insert_into_nvsdt(
     IN p_msnv CHAR(9),
     IN p_sdt CHAR(10)
@@ -903,8 +916,10 @@ BEGIN
     ELSE
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Số diện thoại bạn nhập không đúng format, Số điện thoại cần 10 số';
     END IF;
+    select "Them thanh cong";
 END$$
 DELIMITER ;
+select*from nvsdt;
 
 -- xoa nvsdt
 drop procedure if exists delete_nvsdt;
@@ -978,8 +993,10 @@ BEGIN
         -- Báo lỗi nếu nhân viên không tồn tại
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Khong tồn tại nhân viên đó !  ';
     END IF;
+    select"Them thanh cong";
 END$$
 DELIMITER ;
+select * from nvdiachi;
 
 -- xoa nvdiachi
 drop procedure if exists delete_nvdiachi;
