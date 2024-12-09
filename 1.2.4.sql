@@ -66,6 +66,15 @@ values
 ('NV0000009', 5,2024, 160,150,20);
 select dem_nv_khong_dat_chi_tieu(2024) as ketqua;
 #########################################################
+drop procedure if exists listngay;
+delimiter //
+create procedure listngay( dau date, cuoi date , nv char(9))
+begin
+select * 
+from ngaylamviec
+where msnv=nv and date(giovao)>=dau and date(giovao)<=cuoi;
+end //
+delimiter ;
 drop function if exists tinhgio;
 delimiter //
 create function tinhgio (batdau date,ketthuc date,nv char(9))
