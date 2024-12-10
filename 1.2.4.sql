@@ -192,4 +192,72 @@ DELIMITER ;
           AND bl.nam = 2023;
           
 select * from bangchamcong where thang = 11 and nam = 2024;
-select caculate_salary_to_pay ( 2024 , 11)
+select caculate_salary_to_pay ( 2024 , 11);
+
+drop procedure if exists dem_nv_khong_dat_chi_tieu;
+DELIMITER $$
+create procedure dem_nv_khong_dat_chi_tieu(
+	in input_year int
+)
+begin 
+	declare count_result int;
+    declare maso_nv char(9);
+    declare count_in_loop int;
+    declare done int default false;
+    
+    declare order_cursor CURSOR FOR 
+        SELECT msnv FROM nhanvien;
+	
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
+    
+    set count_result = 0;
+    
+    OPEN order_cursor;
+	-- loop
+    read_loop: loop
+		fetch order_cursor into maso_nv;
+        
+        IF done THEN
+            LEAVE read_loop;
+        END IF;
+        
+        set count_in_loop = 0;
+        
+        select COUNT(*)
+        into count_in_loop
+        from bangchamcong
+        where (sogiohientai < sogiotoithieu) and msnv = maso_nv and nam = input_year;
+        
+        -- trừ đi tháng hiện tại chưa hoàn thành;
+        set count_in_loop = count_in_loop - 1;
+        
+        if (count_in_loop > 2) then
+			set count_result = count_result + 1;
+		end if;
+        
+    end loop;
+    
+    CLOSE order_cursor;
+    
+    return count_result;
+end
+$$
+DELIMITER ;
+
+DROP PROCEDURE IF EXISTS nv_khong_dat_chi_tieu;
+DELIMITER $$
+
+CREATE PROCEDURE nv_khong_dat_chi_tieu(
+    IN input_year INT
+)
+BEGIN
+    -- Truy vấn và hiển thị bảng kết quả
+    SELECT DISTINCT nv.msnv
+    FROM nhanvien nv
+    JOIN bangchamcong bcc ON nv.msnv = bcc.msnv
+    WHERE bcc.nam = input_year
+    GROUP BY nv.msnv
+    HAVING COUNT(CASE WHEN bcc.sogiohientai < bcc.sogiotoithieu THEN 1 END) > 3;
+END$$
+
+DELIMITER ;
