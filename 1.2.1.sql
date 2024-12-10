@@ -358,6 +358,46 @@ BEGIN
 END //
 DELIMITER ;
 ###############################################################
+-- insert bang luong
+drop procedure if exists insert_bangluong;
+DELIMITER $$
+create procedure insert_bangluong(
+	in in_msnv char(9),
+    in in_thang int,
+    in in_nam int,
+    in in_luongcoban decimal(10,2)
+)
+begin
+	if not exists (select 1 from nhanvien where msnv = in_msnv) then
+		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Khong co nhan vien nay'; 
+    end if;
+    
+    if (in_thang < 1 or in_thang > 12) then
+		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Thang khong hop le'; 
+    end if;
+    
+    if (in_nam < 0) then
+		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Nam khong hop le'; 
+    end if;
+    
+    if (in_luongcoban < 0) then
+		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Luong co ban khong hop le'; 
+    end if;
+    
+    if exists (select 1 from bangluong 
+					where msnv = in_msnv and thang = in_thang and nam = in_nam) 
+    then
+		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Ban ghi da ton tai'; 
+    end if;
+    
+    insert bangluong (msnv,thang,nam,luongcoban)
+    values (in_msnv,in_thang,in_nam,in_luongcoban);
+    
+    
+end $$
+DELIMITER ;
+
+-- ----------------------------------------------------
 -- update bangluong 
 -- nếu có lương >15tr thì thuế = 15%, ngược lại là 0%
 -- lương 1 giờ = lương cơ bản / số giờ làm tối thiểu
@@ -369,9 +409,10 @@ DELIMITER ;
 -- -- tính lương trừ không làm đủ giờ tối thiểu
 -- -- lương ko đủ nếu làm không đủ giờ tối thiểu thì TRỪ (số giờ thiếu x lương 1 giờ)
 -- lương thực tế = lương làm thêm + lương cơ bản + xăng xe + ăn trưa + hỗ trợ khác - bhyt - bhxh - thuế - khấu trừ - lương làm không đủ giờ
-drop procedure if exists tinh_luong;
+
 -- sửa bảng lương + tính toán lương thực tế
 -- thêm xăng xe, ăn trưa, hỗ trợ khác khi tính lương
+drop procedure if exists tinh_luong;
 DELIMITER $$
 create procedure tinh_luong(
 	in in_msnv char(9),
@@ -381,7 +422,6 @@ create procedure tinh_luong(
     in in_antrua decimal(10,2),
     in in_hotrokhac decimal(10,2)
 )
-select * from phongban;
 begin
 	
 	declare loai_nv varchar(10);
@@ -417,6 +457,12 @@ begin
     if (in_hotrokhac < 0) then
 		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Tien ho tro khac khong hop le'; 
     end if;
+    
+    if not exists (select 1 from bangluong 
+					where msnv = in_msnv and thang = in_thang and nam = in_nam) 
+    then
+		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Khong ton tai ban ghi can cap nhat'; 
+    end if; 
     
     -- chọn loại nhân viên
     select loainhanvien 
@@ -501,16 +547,6 @@ begin
         set nam_sau = in_nam;
     end if;
     
-    -- tạo bảng chấm công cho tháng sau
-    if not exists (select 1 from bangchamcong where mnsv = in_msnv and thang = thang_sau and nam = nam_sau) then
-		insert into bangchamcong (msnv,thang,nam, sogiohientai, sogiotoithieu, sogiolamthem)
-        values (in_msnv, thang_sau, nam_sau, 0 , in_gio_toi_thieu , 0);
-    end if;
-    -- tạo bảng lương cho tháng sau
-	if not exists (select 1 from bangluong where mnsv = in_msnv and thang = thang_sau and nam = nam_sau) then
-		insert into bangluong (msnv,thang,nam, luongcoban)
-        values (in_msnv, thang_sau, nam_sau, in_luongcoban);
-    end if;
 end
 $$
 DELIMITER ;
@@ -518,6 +554,37 @@ DELIMITER ;
 -- NVNV0000009
 call tinh_luong('NV0000009',1,2024,50000.00,50000.00,100000.00);
 select * from bangluong where msnv='NV0000009';
+--------------------------
+drop procedure if exists delete_bangluong;
+DELIMITER $$
+create procedure delete_bangluong(
+	in in_msnv char(9),
+    in in_thang int,
+    in in_nam int
+)
+begin
+	if not exists (select 1 from nhanvien where msnv = in_msnv) then
+		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Khong co nhan vien nay'; 
+    end if;
+    
+    if (in_thang < 1 or in_thang > 12) then
+		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Thang khong hop le'; 
+    end if;
+    
+    if (in_nam < 0) then
+		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Nam khong hop le'; 
+    end if;
+    
+    if not exists (select 1 from bangluong 
+					where msnv = in_msnv and thang = in_thang and nam = in_nam) 
+    then
+		SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Khong ton tai ban ghi can xoa'; 
+    end if;
+    
+    delete from bangluong where msnv = in_msnv and thang = in_thang and nam = in_nam;
+    
+end $$
+DELIMITER
 ####################################################################
  
 -- lay nguoi luong cao thu 2 cua 1 phong
