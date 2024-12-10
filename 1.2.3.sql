@@ -55,11 +55,12 @@ DELIMITER //
 CREATE PROCEDURE xem_lichsu_cv(nv CHAR(9))
 BEGIN
     SELECT 
+		n.msnv,
         l.stt, 
-        n.hoten, 
-        n.msnv, 
-        l.startdate, 
+		l.startdate, 
         l.chucvu, 
+        l.loainv,
+        l.luongcoban,
         l.tenphongban 
     FROM 
         nhanvien n
