@@ -160,3 +160,28 @@ END$$
 DELIMITER ;
 call k_hoanthanh_tren_nhieu_lan(2024,5);
 CALL nv_khong_dat_chi_tieu(2024,1);
+
+
+-- Tìm bảng lương tháng x năm y của tất cả nhân viên dự án z
+
+DELIMITER //
+
+CREATE PROCEDURE GetLuongThangNamDuAn (
+    IN p_thang INT, 
+    IN p_nam INT, 
+    IN p_mada VARCHAR(50)
+)
+BEGIN
+    -- Truy vấn lấy bảng lương của tất cả nhân viên tham gia dự án p_mada trong tháng p_thang và năm p_nam
+    SELECT nl.msnv, nl.thang, nl.nam, nl.luongthucte
+    FROM bangluong nl
+    JOIN nhanvien_thamgia_duan nvd ON nl.msnv = nvd.msnv
+    WHERE nl.thang = p_thang
+    AND nl.nam = p_nam
+    AND nvd.msda = p_mada
+    ORDER BY nl.msnv;
+END;
+//
+
+DELIMITER ;
+CALL GetLuongThangNamDuAn(12, 2024, 'DA0001');
