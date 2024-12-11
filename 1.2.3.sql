@@ -98,3 +98,65 @@ DELIMITER ;
 
 CALL tim_maxluong_withinPhongban_inMonth(6,2024 ,10.00);
 select * from bangluong;
+#############################################
+-- khong hoan thanh nhieu thang
+drop procedure if exists k_hoanthanh_tren_nhieu_lan;
+delimiter //
+create procedure k_hoanthanh_tren_nhieu_lan(namm int,solan int)
+begin
+select temp.msnv,temp.hoten,sum(temp.toithieu)-sum(temp.thucte) as phanthieu,count(*)as sothangthieu
+from (select n.hoten as hoten, n.msnv as msnv,b.sogiotoithieu as toithieu,b.sogiohientai as thucte
+from nhanvien n join bangchamcong b on n.msnv=b.msnv
+where b.sogiohientai<b.sogiotoithieu and b.nam=namm 
+and(year(curdate())>namm or(year(curdate())=nam and b.thang<month(curdate()))))as temp
+group by temp.msnv,temp.hoten
+having count(*)>=solan
+order by count(*)
+;
+end //
+delimiter ;
+call k_hoanthanh_tren_nhieu_lan(2023,1);
+select*from bangchamcong where nam=2023;
+insert into bangchamcong(msnv,thang,nam,sogiotoithieu,sogiolamthem,sogiohientai)
+values('NV0000001',1,2023,1,0,0),
+('NV0000001',2,2023,1,0,0),
+('NV0000001',3,2023,1,0,0),
+('NV0000001',4,2023,1,0,0),
+('NV0000001',5,2023,1,0,0),
+('NV0000001',6,2023,1,0,0),
+('NV0000001',7,2023,1,0,0),
+('NV0000001',8,2023,1,0,0),
+('NV0000001',9,2023,1,0,0),
+('NV0000001',10,2023,1,0,0),
+('NV0000001',11,2023,1,0,0),
+('NV0000001',12,2023,1,0,0);
+delete from bangchamcong
+where msnv='NV0000001'and nam=2023;
+
+DROP PROCEDURE IF EXISTS nv_khong_dat_chi_tieu;
+DELIMITER $$
+
+CREATE PROCEDURE nv_khong_dat_chi_tieu(
+    IN input_year INT,solan int
+)
+BEGIN
+    -- Truy vấn và hiển thị bảng kết quả
+    select b1.msnv,b1.thang,b1.sogiohientai,b1.sogiotoithieu
+    from bangchamcong b1
+    join(select temp.msnv as msnv
+from (select n.hoten as hoten, n.msnv as msnv,b.sogiotoithieu as toithieu,b.sogiohientai as thucte
+from nhanvien n join bangchamcong b on n.msnv=b.msnv
+where b.sogiohientai<b.sogiotoithieu and b.nam=input_year 
+and(year(curdate())>input_year or(year(curdate())=b.nam and b.thang<month(curdate()))))as temp
+group by temp.msnv,temp.hoten
+having count(*)>=solan
+order by count(*)
+) as kht
+    on b1.msnv=kht.msnv 
+    where b1.sogiohientai<b1.sogiotoithieu and b1.nam=input_year
+    and (year(curdate())>input_year or(year(curdate())=nam and b1.thang<month(curdate())));
+END$$
+
+DELIMITER ;
+call k_hoanthanh_tren_nhieu_lan(2024,5);
+CALL nv_khong_dat_chi_tieu(2024,1);
