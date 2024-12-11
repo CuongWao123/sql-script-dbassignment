@@ -547,15 +547,16 @@ begin
         set nam_sau = in_nam;
     end if;
     
-    -- tạo bảng chấm công cho tháng sau
-    if not exists (select 1 from bangchamcong where msnv = in_msnv and thang = thang_sau and nam = nam_sau) then
-		insert into bangchamcong (msnv,thang,nam, sogiohientai, sogiotoithieu, sogiolamthem)
-        values (in_msnv, thang_sau, nam_sau, 0 , in_gio_toi_thieu , 0);
-    end if;
+    
     -- tạo bảng lương cho tháng sau
 	if not exists (select 1 from bangluong where msnv = in_msnv and thang = thang_sau and nam = nam_sau) then
 		insert into bangluong (msnv,thang,nam, luongcoban)
         values (in_msnv, thang_sau, nam_sau, in_luongcoban);
+    end if;
+    -- tạo bảng chấm công cho tháng sau
+    if not exists (select 1 from bangchamcong where msnv = in_msnv and thang = thang_sau and nam = nam_sau) then
+		insert into bangchamcong (msnv,thang,nam, sogiohientai, sogiotoithieu, sogiolamthem)
+        values (in_msnv, thang_sau, nam_sau, 0 , in_gio_toi_thieu , 0);
     end if;
     
 end
