@@ -188,7 +188,6 @@ begin
     then
 	if luongtruongphong<new.luongcoban then
 		begin
-			set new.hotrokhac=new.hotrokhac+new.luongcoban-luongtruongphong;
 			set new.luongcoban =luongtruongphong;end;
 	end if;
     end if;
@@ -211,7 +210,6 @@ begin
     then SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Chua co truong phong khong the them';end if;
 	if luongtruongphong<new.luongcoban then
 		begin
-			set new.hotrokhac=new.hotrokhac+new.luongcoban-luongtruongphong;
 			set new.luongcoban =luongtruongphong;end;
 	end if;
 end //
@@ -222,9 +220,22 @@ create trigger luongtruongphongcaonhat_delete
 before delete
 on bangluong 
 for each row
-begin
+begin 
+declare so_bcc int;
+select count(*) into so_bcc
+from bangchamcong b
+join
+(select n.msnv 
+from nhanvien n 
+where n.mspb=(select n1.mspb from nhanvien n1 where n1.msnv=old.msnv))as aa
+on b.msnv=aa.msnv
+where b.thang=old.thang and b.nam = old.nam;
+
 if (old.msnv = (select nv_quanly from phongban p1 where p1.mspb=(select n1.mspb from nhanvien n1 where n1.msnv=old.msnv)))
-then SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Nhan vien nay la truong phong, khong the xoa';
+then
+if !(so_bcc=1)then  
+SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Nhan vien nay la truong phong, khong the xoa';
+end if;
 end if;
 end //
 delimiter ;
