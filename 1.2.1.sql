@@ -558,7 +558,7 @@ begin
 		insert into bangchamcong (msnv,thang,nam, sogiohientai, sogiotoithieu, sogiolamthem)
         values (in_msnv, thang_sau, nam_sau, 0 , in_gio_toi_thieu , 0);
     end if;
-    
+    select 'Thanh cong';
 end
 $$
 DELIMITER ;
